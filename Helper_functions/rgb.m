@@ -1,343 +1,279 @@
-% rgb.m: translates a colour from multiple formats into matlab colour format
-% type 'rgb demo' to get started
+% RGB  Rgb triple for given CSS color name
 %
-% [matlabcolor]=rgb(col)
-% matlab colors are in the format [R G B]
+%   RGB = RGB('COLORNAME') returns the red-green-blue triple corresponding
+%     to the color named COLORNAME by the CSS3 proposed standard [1], which
+%     contains 139 different colors (an rgb triple is a 1x3 vector of
+%     numbers between 0 and 1). COLORNAME is case insensitive, and for gray
+%     colors both spellings (gray and grey) are allowed.
 %
-% if 'col' is a string, it is interpreted as
+%   RGB CHART creates a figure window showing all the available colors with
+%     their names.
 %
-% 	[[modifier] descriptor] colour_name
+%   EXAMPLES
+%     c = rgb('DarkRed')               gives c = [0.5430 0 0]
+%     c = rgb('Green')                 gives c = [0 0.5 0]
+%     plot(x,y,'color',rgb('orange'))  plots an orange line through x and y
+%     rgb chart                        shows all the colors
 %
-% where
-%		modifier is one of   (slightly, normal, very, extremely)
-%		descriptor is one of (light/pale, normal, dark)
-%		colorname is a name of a colour
-%			(type 'rgb list' or 'rgb demo' to see them all)
+%   BACKGROUND
+%     The color names of [1] have already been ratified in [2], and
+%     according to [3] they are accepted by almost all web browsers and are
+%     used in Microsoft's .net framework. All but four colors agree with
+%     the X11 colornames, as detailed in [4]. Of these the most important
+%     clash is green, defined as [0 0.5 0] by CSS and [0 1 0] by X11. The
+%     definition of green in Matlab matches the X11 definition and gives a
+%     very light green, called lime by CSS (many users of Matlab have
+%     discovered this when trying to color graphs with 'g-'). Note that
+%     cyan and aqua are synonyms as well as magenta and fuchsia.
 %
-% if 'col' is an integer between 0 and &HFFFFFF inclusive,
-% it is interpreted as a double word RGB value in the form
-% [0][R][G][B]
+%   ABOUT RGB
+%     This program is public domain and may be distributed freely.
+%     Author: Kristján Jónasson, Dept. of Computer Science, University of
+%     Iceland (jonasson@hi.is). June 2009.
 %
-% if 'col' is a negative integer between -1 and -&HFFFFFF
-% inclusive, it is interpreted as the complement of a double
-% word RGB value in the form [0][B][G][R]
+%   REFERENCES
+%     [1] "CSS Color module level 3", W3C (World Wide Web Consortium)
+%         working draft 21 July 2008, http://www.w3.org/TR/css3-color
 %
-% if 'col' is a string of the form 'qbX' or 'qbXX' where X
-% is a digit then the number part is interpreted as a qbasic
-% color
+%     [2] "Scalable Vector Graphics (SVG) 1.1 specification", W3C
+%         recommendation 14 January 2003, edited in place 30 April 2009,
+%         http://www.w3.org/TR/SVG
 %
-% if 'col' is one of {k,w,r,g,b,y,m,c} a sensible result is
-% returned
+%     [3] "Web colors", http://en.wikipedia.org/wiki/Web_colors
 %
-% if 'col' is already in matlab format, it is unchanged
+%     [4] "X11 color names" http://en.wikipedia.org/wiki/X11_color_names
 
-%	VERSION:	06/06/2002
-%	AUTHOR:		ben mitch
-%	CONTACT:	footballpitch@theconnexion.zzn.com
-%	WWW:		www.benmitch.co.uk\matlab (not yet)
-%	LOCATION:	figures\colors\
-
-function out=rgb(in)
-
-if isa(in,'char') & length(in)>2 & length(in)<5 & strcmpi('qb',in(1:2))
-	out=qbcolor(sscanf(in(3:end),'%i'));
-elseif isa(in,'char') & length(in)==1
-	out=translatecolorchar(in);
-elseif isa(in,'char')
-	if strcmp(in,'demo') rgb_demo; return; end
-	if strcmp(in,'list') rgb_list; return; end
-	out=translatecolorstring(in);
-elseif isa(in,'double') & size(in,1)==1 & size(in,2)==1 & abs(in)<16777216
-	out=translatecolorRGB(in);
-elseif isa(in,'double') & size(in,1)==1 & size(in,2)==3
-	out=in;
-else
-	warning('Unrecognised color format, black assumed');
-	out=[0 0 0];
+function rgb = rgb(s)
+  persistent num name
+  if isempty(num) % First time rgb is called
+    [num,name] = getcolors();
+    name = lower(name);
+    num = reshape(hex2dec(num), [], 3);
+    % Divide most numbers by 256 for "aesthetic" reasons (green=[0 0.5 0])
+    I = num < 240;  % (interpolate F0--FF linearly from 240/256 to 1.0)
+    num(I) = num(I)/256;
+    num(~I) = ((num(~I) - 240)/15 + 15)/16; + 240;
+  end
+  if strcmpi(s,'chart')
+    showcolors()
+  else
+    k = find(strcmpi(s, name));
+    if isempty(k)
+      error(['Unknown color: ' s]);
+    else
+      rgb = num(k(1), :);
+    end
+  end
 end
 
-function out=translatecolorchar(in)
-switch(in)
-case 'k', out=[0 0 0];
-case 'w', out=[1 1 1];
-case 'r', out=[1 0 0];
-case 'g', out=[0 1 0];
-case 'b', out=[0 0 1];
-case 'y', out=[1 1 0];
-case 'm', out=[1 0 1];
-case 'c', out=[0 1 1];
-otherwise
-	warning(['Unrecognised colour "' in '", black assumed'])
-	out=[0 0 0];
-	return;
+function showcolors()
+  [num,name] = getcolors();
+  grp = {'White', 'Gray', 'Red', 'Pink', 'Orange', 'Yellow', 'Brown'...
+    , 'Green', 'Blue', 'Purple', 'Grey'};
+  J = [1,3,6,8,9,10,11];
+  fl = lower(grp);
+  nl = lower(name);
+  for i=1:length(grp)
+    n(i) = strmatch(fl{i}, nl, 'exact'); 
+  end
+  clf
+  p = get(0,'screensize');
+  wh = 0.6*p(3:4);
+  xy0 = p(1:2)+0.5*p(3:4) - wh/2;
+  set(gcf,'position', [xy0 wh]);
+  axes('position', [0 0 1 1], 'visible', 'off');
+  hold on
+  x = 0;
+  N = 0;
+  for i=1:length(J)-1
+    N = max(N, n(J(i+1)) - n(J(i)) + (J(i+1) - J(i))*1.3); 
+  end
+  h = 1/N;
+  w = 1/(length(J)-1);
+  d = w/30;
+  for col = 1:length(J)-1;
+    y = 1 - h;
+    for i=J(col):J(col+1)-1
+      t = text(x+w/2, y+h/10 , [grp{i} ' colors']);
+      set(t, 'fontw', 'bold', 'vert','bot', 'horiz','cent', 'fontsize',10);
+      y = y - h;
+      for k = n(i):n(i+1)-1
+        c = rgb(name{k});
+        bright = (c(1)+2*c(2)+c(3))/4;
+        if bright < 0.5, txtcolor = 'w'; else txtcolor = 'k'; end
+        rectangle('position',[x+d,y,w-2*d,h],'facecolor',c);
+        t = text(x+w/2, y+h/2, name{k}, 'color', txtcolor);
+        set(t, 'vert', 'mid', 'horiz', 'cent', 'fontsize', 9);
+        y = y - h;
+      end
+      y = y - 0.3*h;
+    end
+    x = x + w;
+  end
 end
 
-function out=translatecolorstring(in)
-args.tokens=rgb_parse(in);
-args.N=length(args.tokens);
-if args.N>3 warning('Too many words in color description, any more than 3 will be ignored'); end
-while(args.N<3)
-	args.tokens=[{'normal'};args.tokens];
-	args.N=args.N+1;
-end
-
-cols=get_cols;
-col=[];
-for n=1:size(cols,1)
-	names=cols{n,1};
-	for m=1:length(names)
-		if strcmp(args.tokens{3},names{m}) col=cols{n,2}; break; end
-	end
-	if ~isempty(col) break; end
-end
-
-if isempty(col)
-	warning(['Unrecognised colour "' args.tokens{3} '", black assumed'])
-	out=[0 0 0];
-	return;
-end
-
-switch args.tokens{1}
-case 'slightly', fac=0.75;
-case 'normal', fac=0.5;
-case 'very', fac=0.25;
-case 'extremely', fac=0.125;
-otherwise
-	warning(['Unrecognised modifier "' args.tokens{1} '", normal assumed'])
-	fac=0.5;
-end
-
-switch args.tokens{2}
-case {'light','pale'}, out=1-(1-col)*fac;
-case 'normal', out=col;
-case 'dark', out=col*fac;
-otherwise
-	warning(['Unrecognised descriptor "' args.tokens{2} '", normal assumed'])
-	out=col;
-end
-
-function out=translatecolorRGB(in)
-
-BGR=0;
-if in<0
-	in=-in;
-	BGR=1;
-end
-
-b=bytes4(in);
-if BGR out=b(4:-1:2); else out=b(2:4); end
-
-function out=qbcolor(in)
-
-% rgb value from basic colour code
-% 0-7 are normal, 8-15 are bright
-% 0 - black
-% 1 - red,  2 - green,   3 - blue
-% 4 - cyan, 5 - magenta, 6 - yellow
-% 7 - white
-
-bright=0.5;
-if in>7 in=in-8; bright=1; end
-
-switch in
-case 0, rgb=[0 0 0];
-case 1, rgb=[1 0 0];
-case 2, rgb=[0 1 0];
-case 3, rgb=[0 0 1];
-case 4, rgb=[0 1 1];
-case 5, rgb=[1 0 1];
-case 6, rgb=[1 1 0];
-case 7, rgb=[1 1 1];
-otherwise
-	warning('Unrecognised QBasic color, black assumed');
-	out=[0 0 0];
-	return;
-end
-
-out=rgb*bright;
-
-
-function tokens=rgb_parse(str)
-
-% parse string to obtain all tokens
-% quoted strings count as single tokens
-
-inquotes=0;
-intoken=0;
-pos=1;
-l=length(str);
-st=0;
-ed=0;
-token='';
-tab=char(9);
-tokens=cell(0);
-while(pos<=l)
-	ch=str(pos);
-	if inquotes
-		if ch=='"'
-			inquotes=0;
-			tokens={tokens{:} token};
-		else
-			token=[token ch];
-		end
-	elseif intoken
-		if ch==' ' | ch==tab
-			intoken=0;
-			tokens={tokens{:} token};
-		elseif ch=='"'
-			error(['Quote misplace in <' str '>']);
-		else
-			token=[token ch];
-		end
-	else
-		if ch==' ' | ch==tab
-			% do nothing
-		elseif ch=='"'
-			token='';
-			inquotes=1;
-		else
-			token=ch;
-			intoken=1;
-		end
-	end
-	pos=pos+1;
-end
-
-if intoken tokens={tokens{:} token}; end
-if inquotes error(['Unpaired quotes in <' str '>']); end
-
-tokens=tokens';
-
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% DEMO
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function rgb_demo
-
-figure(1)
-clf
-cols = get_cols;
-cols = {cols{:,1}}';
-cols = { cols{:}, ...
-	'k', ...
-	'r', ...
-	'g', ...
-	'b', ...
-	'y', ...
-	'm', ...
-	'c', ...
-	'w', ...
-	'', ...
-	'extremely dark green', ...
-	'very dark green', ...
-	'dark green', ...
-	'slightly dark green', ...
-	'green', ...
-	'slightly pale green', ...
-	'pale green', ...
-	'very pale green', ...
-	'extremely pale green', ...
-};
-
-height=9;
-x=0;
-y=0;
-for n=1:length(cols)
-	rect(x,y,cols{n})
-	y=y+1;
-	if y==height
-		x=x+2;
-		y=0;
-	end
-end
-if y==0 x=x-2; end
-axis([0 (x+2) 0 height])
-title('names on different rows are alternates')
-
-function rect(x,y,col)
-if isempty(col) return; end
-r=rectangle('position',[x+0.1 y+0.1 1.8 0.8]);
-col_=col;
-if iscell(col) col=col{1}; end
-colrgb=rgb(col);
-if strcmp(col(1),'u') & length(col)==2
-	t=text(x+1,y+0.5,{'unnamed',['colour (' col(2) ')']});
-	set(r,'facecolor',colrgb);
-else
-	t=text(x+1,y+0.5,col_);
-	set(r,'facecolor',colrgb);
-	if sum(colrgb)<1.5 set(t,'color',[1 1 1]); end
-end
-set(t,'horizontalalignment','center')
-set(t,'fontsize',10)
-
-function rgb_list
-cols=get_cols;
-disp(' ')
-for n=1:size(cols,1)
-	code=cols{n,2};
-	str=cols{n,1};
-	str_=[];
-	for m=1:length(str)
-		str_=[str_ str{m} ', '];
-	end
-	str_=str_(1:end-2);
-	if strcmp(str_(1),'u') & length(str_)==2
-		str_=['* (' str_(2) ')'];
-	end
-	disp(['  [' sprintf('%.1f  %.1f  %.1f',code) '] - ' str_])
-end
-disp([10 '* colours marked thus are not named - if you know their' 10 '  designation, or if you feel sure a colour is mis-named,' 10 '  email me (address via help) or comment at' 10 '  www.mathworks.com/matlabcentral - "rgb demo" to see them' 10])
-
-function cols=get_cols
-
-cols={
-	'black', [0 0 0]; ...
-	'navy', [0 0 0.5]; ...
-	'blue', [0 0 1]; ...
-	'u1', [0 0.5 0]; ...
-	{'teal','turquoise'}, [0 0.5 0.5]; ...
-	'slateblue', [0 0.5 1]; ...
-	{'green','lime'}, [0 1 0]; ...
-	'springgreen', [0 1 0.5]; ...
-	{'cyan','aqua'}, [0 1 1]; ...
-	'maroon', [0.5 0 0]; ...
-	'purple', [0.5 0 0.5]; ...
-	'u2', [0.5 0 1]; ...
-	'olive', [0.5 0.5 0]; ...
-	{'gray','grey'}, [0.5 0.5 0.5]; ...
-	'u3', [0.5 0.5 1]; ...
-	{'mediumspringgreen','chartreuse'}, [0.5 1 0]; ...
-	'u4', [0.5 1 0.5]; ...
-	'sky', [0.5 1 1]; ...
-	'red', [1 0 0]; ...
-	'u5', [1 0 0.5]; ...
-	{'magenta','fuchsia'}, [1 0 1]; ...
-	'orange', [1 0.5 0]; ...
-	'u6', [1 0.5 0.5]; ...
-	'u7', [1 0.5 1]; ...
-	'yellow', [1 1 0]; ...
-	'u8', [1 1 0.5]; ...
-	'white', [1 1 1]; ...
-	};
-
-for n=1:size(cols,1)
-	if ~iscell(cols{n,1}) cols{n,1}={cols{n,1}}; end
-end
-
-% converts a DWORD into a four byte row vector
-function out=bytes4(in)
-
-out=[0 0 0 0];
-if in<0 | in>(2^32-1)
-	warning('DWORD out of range, zero assumed');
-	return;
-end
-
-N=4;
-while(in>0)
-	out(N)=mod(in,256);
-	in=(in-out(N))/256;
-	N=N-1;
+function [hex,name] = getcolors()
+  css = {
+    %White colors
+    'FF','FF','FF', 'White'
+    'FF','FA','FA', 'Snow'
+    'F0','FF','F0', 'Honeydew'
+    'F5','FF','FA', 'MintCream'
+    'F0','FF','FF', 'Azure'
+    'F0','F8','FF', 'AliceBlue'
+    'F8','F8','FF', 'GhostWhite'
+    'F5','F5','F5', 'WhiteSmoke'
+    'FF','F5','EE', 'Seashell'
+    'F5','F5','DC', 'Beige'
+    'FD','F5','E6', 'OldLace'
+    'FF','FA','F0', 'FloralWhite'
+    'FF','FF','F0', 'Ivory'
+    'FA','EB','D7', 'AntiqueWhite'
+    'FA','F0','E6', 'Linen'
+    'FF','F0','F5', 'LavenderBlush'
+    'FF','E4','E1', 'MistyRose'
+    %Grey colors'
+    '80','80','80', 'Gray'
+    'DC','DC','DC', 'Gainsboro'
+    'D3','D3','D3', 'LightGray'
+    'C0','C0','C0', 'Silver'
+    'A9','A9','A9', 'DarkGray'
+    '69','69','69', 'DimGray'
+    '77','88','99', 'LightSlateGray'
+    '70','80','90', 'SlateGray'
+    '2F','4F','4F', 'DarkSlateGray'
+    '00','00','00', 'Black'
+    %Red colors
+    'FF','00','00', 'Red'
+    'FF','A0','7A', 'LightSalmon'
+    'FA','80','72', 'Salmon'
+    'E9','96','7A', 'DarkSalmon'
+    'F0','80','80', 'LightCoral'
+    'CD','5C','5C', 'IndianRed'
+    'DC','14','3C', 'Crimson'
+    'B2','22','22', 'FireBrick'
+    '8B','00','00', 'DarkRed'
+    %Pink colors
+    'FF','C0','CB', 'Pink'
+    'FF','B6','C1', 'LightPink'
+    'FF','69','B4', 'HotPink'
+    'FF','14','93', 'DeepPink'
+    'DB','70','93', 'PaleVioletRed'
+    'C7','15','85', 'MediumVioletRed'
+    %Orange colors
+    'FF','A5','00', 'Orange'
+    'FF','8C','00', 'DarkOrange'
+    'FF','7F','50', 'Coral'
+    'FF','63','47', 'Tomato'
+    'FF','45','00', 'OrangeRed'
+    %Yellow colors
+    'FF','FF','00', 'Yellow'
+    'FF','FF','E0', 'LightYellow'
+    'FF','FA','CD', 'LemonChiffon'
+    'FA','FA','D2', 'LightGoldenrodYellow'
+    'FF','EF','D5', 'PapayaWhip'
+    'FF','E4','B5', 'Moccasin'
+    'FF','DA','B9', 'PeachPuff'
+    'EE','E8','AA', 'PaleGoldenrod'
+    'F0','E6','8C', 'Khaki'
+    'BD','B7','6B', 'DarkKhaki'
+    'FF','D7','00', 'Gold'
+    %Brown colors
+    'A5','2A','2A', 'Brown'
+    'FF','F8','DC', 'Cornsilk'
+    'FF','EB','CD', 'BlanchedAlmond'
+    'FF','E4','C4', 'Bisque'
+    'FF','DE','AD', 'NavajoWhite'
+    'F5','DE','B3', 'Wheat'
+    'DE','B8','87', 'BurlyWood'
+    'D2','B4','8C', 'Tan'
+    'BC','8F','8F', 'RosyBrown'
+    'F4','A4','60', 'SandyBrown'
+    'DA','A5','20', 'Goldenrod'
+    'B8','86','0B', 'DarkGoldenrod'
+    'CD','85','3F', 'Peru'
+    'D2','69','1E', 'Chocolate'
+    '8B','45','13', 'SaddleBrown'
+    'A0','52','2D', 'Sienna'
+    '80','00','00', 'Maroon'
+    %Green colors
+    '00','80','00', 'Green'
+    '98','FB','98', 'PaleGreen'
+    '90','EE','90', 'LightGreen'
+    '9A','CD','32', 'YellowGreen'
+    'AD','FF','2F', 'GreenYellow'
+    '7F','FF','00', 'Chartreuse'
+    '7C','FC','00', 'LawnGreen'
+    '00','FF','00', 'Lime'
+    '32','CD','32', 'LimeGreen'
+    '00','FA','9A', 'MediumSpringGreen'
+    '00','FF','7F', 'SpringGreen'
+    '66','CD','AA', 'MediumAquamarine'
+    '7F','FF','D4', 'Aquamarine'
+    '20','B2','AA', 'LightSeaGreen'
+    '3C','B3','71', 'MediumSeaGreen'
+    '2E','8B','57', 'SeaGreen'
+    '8F','BC','8F', 'DarkSeaGreen'
+    '22','8B','22', 'ForestGreen'
+    '00','64','00', 'DarkGreen'
+    '6B','8E','23', 'OliveDrab'
+    '80','80','00', 'Olive'
+    '55','6B','2F', 'DarkOliveGreen'
+    '00','80','80', 'Teal'
+    %Blue colors
+    '00','00','FF', 'Blue'
+    'AD','D8','E6', 'LightBlue'
+    'B0','E0','E6', 'PowderBlue'
+    'AF','EE','EE', 'PaleTurquoise'
+    '40','E0','D0', 'Turquoise'
+    '48','D1','CC', 'MediumTurquoise'
+    '00','CE','D1', 'DarkTurquoise'
+    'E0','FF','FF', 'LightCyan'
+    '00','FF','FF', 'Cyan'
+    '00','FF','FF', 'Aqua'
+    '00','8B','8B', 'DarkCyan'
+    '5F','9E','A0', 'CadetBlue'
+    'B0','C4','DE', 'LightSteelBlue'
+    '46','82','B4', 'SteelBlue'
+    '87','CE','FA', 'LightSkyBlue'
+    '87','CE','EB', 'SkyBlue'
+    '00','BF','FF', 'DeepSkyBlue'
+    '1E','90','FF', 'DodgerBlue'
+    '64','95','ED', 'CornflowerBlue'
+    '41','69','E1', 'RoyalBlue'
+    '00','00','CD', 'MediumBlue'
+    '00','00','8B', 'DarkBlue'
+    '00','00','80', 'Navy'
+    '19','19','70', 'MidnightBlue'
+    %Purple colors
+    '80','00','80', 'Purple'
+    'E6','E6','FA', 'Lavender'
+    'D8','BF','D8', 'Thistle'
+    'DD','A0','DD', 'Plum'
+    'EE','82','EE', 'Violet'
+    'DA','70','D6', 'Orchid'
+    'FF','00','FF', 'Fuchsia'
+    'FF','00','FF', 'Magenta'
+    'BA','55','D3', 'MediumOrchid'
+    '93','70','DB', 'MediumPurple'
+    '99','66','CC', 'Amethyst'
+    '8A','2B','E2', 'BlueViolet'
+    '94','00','D3', 'DarkViolet'
+    '99','32','CC', 'DarkOrchid'
+    '8B','00','8B', 'DarkMagenta'
+    '6A','5A','CD', 'SlateBlue'
+    '48','3D','8B', 'DarkSlateBlue'
+    '7B','68','EE', 'MediumSlateBlue'
+    '4B','00','82', 'Indigo'
+    %Gray repeated with spelling grey
+    '80','80','80', 'Grey'
+    'D3','D3','D3', 'LightGrey'
+    'A9','A9','A9', 'DarkGrey'
+    '69','69','69', 'DimGrey'
+    '77','88','99', 'LightSlateGrey'
+    '70','80','90', 'SlateGrey'
+    '2F','4F','4F', 'DarkSlateGrey'
+    };
+  hex = css(:,1:3);
+  name = css(:,4);
 end
